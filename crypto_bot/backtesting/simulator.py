@@ -390,7 +390,9 @@ def _run(
                 qty = balance / actual_entry
 
             if qty > 0:
-                # Register in BacktestTradeStore for cooldown/frequency tracking
+                # Register in BacktestTradeStore for cooldown/frequency tracking.
+                # Use the actual candle timestamp as opened_at so that cooldown
+                # and frequency checks operate on simulated time, not wall-clock time.
                 trade_record = Trade(
                     id=f"{symbol}_{candle_ts_str}",
                     symbol=symbol,
@@ -407,7 +409,7 @@ def _run(
                     trend_1h=pending_signal.trend_state,
                     regime_label=pending_signal.regime_label,
                     regime_score=pending_signal.regime_score or 0.0,
-                    opened_at=datetime.now(timezone.utc).isoformat(),
+                    opened_at=candle_ts_str,
                 )
                 store.save_open_trade(trade_record)
 
@@ -502,11 +504,13 @@ def _run(
                 )
                 completed_trades.append(sim_trade)
 
-                # Update BacktestTradeStore for cooldown tracking
+                # Update BacktestTradeStore for cooldown tracking.
+                # Use the actual exit candle timestamp so cooldown periods are
+                # measured in simulated time, not wall-clock time.
                 open_stored = store._open_by_symbol.get(symbol)
                 if open_stored:
                     open_stored.status = "closed_sl" if exit_reason == "sl" else "closed_tp"
-                    open_stored.closed_at = datetime.now(timezone.utc).isoformat()
+                    open_stored.closed_at = candle_ts_str
                     open_stored.close_price = exit_price
                     open_stored.pnl_usdt = net_pnl
                     store.close_trade(open_stored)
@@ -540,8 +544,11 @@ def _run(
         # Slice 15m data up to and including current candle (no future data)
         df_15m_slice = df_15m.iloc[:i + 1]
 
+        # Pass the candle's own timestamp as current_time so that cooldown
+        # and frequency checks use simulated time rather than wall-clock time.
         signal = evaluate_signal(
-            symbol, df_1h_slice, df_15m_slice, store, balance
+            symbol, df_1h_slice, df_15m_slice, store, balance,
+            current_time=candle_time.to_pydatetime(),
         )
 
         if signal.approved:

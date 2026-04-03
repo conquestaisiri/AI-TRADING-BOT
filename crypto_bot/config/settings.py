@@ -106,6 +106,29 @@ class Settings:
         # ── Loop timing ───────────────────────────────────────────────────────
         self.LOOP_INTERVAL_SECONDS: int = _int_env("LOOP_INTERVAL_SECONDS", 900)
 
+        # ── Backtesting ───────────────────────────────────────────────────────
+        # Initial balance for backtest simulation (USDT)
+        self.BACKTEST_INITIAL_BALANCE: float = _float_env("BACKTEST_INITIAL_BALANCE", 10_000.0)
+        # Fee per leg as a decimal (0.0004 = 0.04%, Binance USDT-M taker rate)
+        self.BACKTEST_FEE_RATE: float = _float_env("BACKTEST_FEE_RATE", 0.0004)
+        # Slippage per leg as a decimal (0.0002 = 0.02%, conservative estimate)
+        self.BACKTEST_SLIPPAGE_RATE: float = _float_env("BACKTEST_SLIPPAGE_RATE", 0.0002)
+        # Entry mode: only "next_open" is supported — enters at the open of the
+        # candle following signal confirmation.
+        self.BACKTEST_ENTRY_MODE: str = os.getenv("BACKTEST_ENTRY_MODE", "next_open")
+        # Total 15m candles to fetch per symbol for the backtest window.
+        # 2000 ≈ 21 days; 6000 ≈ 63 days; 10000 ≈ 104 days.
+        self.BACKTEST_CANDLE_LIMIT: int = _int_env("BACKTEST_CANDLE_LIMIT", 2000)
+        # Symbols to backtest (comma-separated); defaults to live SYMBOLS setting
+        raw_bt_syms = os.getenv("BACKTEST_SYMBOLS", "")
+        self.BACKTEST_SYMBOLS: list[str] = (
+            [s.strip() for s in raw_bt_syms.split(",") if s.strip()]
+            if raw_bt_syms.strip()
+            else self.SYMBOLS
+        )
+        # Directory where backtest result files are written
+        self.BACKTEST_EXPORT_DIR: str = os.getenv("BACKTEST_EXPORT_DIR", "backtest_results")
+
     def validate(self) -> None:
         """
         Call once at startup. Raises RuntimeError with a list of all problems

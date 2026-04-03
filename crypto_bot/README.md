@@ -17,6 +17,7 @@ enforces cooldown and frequency limits, and logs every decision with full contex
 ```
 crypto_bot/
 ├── app.py                      # Main entry point and autonomous loop
+├── run_backtest.py             # Convenience CLI entry point for backtesting
 ├── requirements.txt            # Python dependencies
 ├── .env.example                # Environment variable template
 │
@@ -51,6 +52,14 @@ crypto_bot/
 │   ├── trade_store.py          # SQLite (open trades) + CSV (closed trades) + cooldown queries
 │   ├── trades.db               # Created on first run
 │   └── closed_trades.csv       # Appended on each trade close
+│
+├── backtesting/
+│   ├── backtest_runner.py      # CLI module entrypoint (python -m backtesting.backtest_runner)
+│   ├── data_loader.py          # Paginated historical OHLCV fetcher with CSV caching
+│   ├── simulator.py            # Walk-forward simulation engine
+│   ├── metrics.py              # Performance metric calculations
+│   ├── report_writer.py        # CSV / JSON / Markdown report exporter
+│   └── parameter_sweeper.py    # Multi-parameter grid sweep utility
 │
 └── logs/
     ├── logger.py               # Rotating file + console logger
@@ -291,3 +300,155 @@ trade quality assessment — no restructuring needed.
   "body_to_range": 0.67, ...
 }
 ```
+
+---
+
+## Backtesting Engine
+
+The backtesting engine lets you test the strategy on historical OHLCV data before
+running it live. It reuses the same 7-stage signal evaluation, indicator calculations,
+risk logic, cooldown checks, and frequency limits as the live bot — no simplified
+stand-in strategy.
+
+### How to run
+
+No API keys are needed. Historical data is fetched from the public Binance USDT-M endpoint.
+
+```bash
+cd crypto_bot
+
+# Quick test with defaults (~21 days, BTCUSDT + ETHUSDT)
+python run_backtest.py
+
+# Test a single symbol over ~63 days
+python run_backtest.py --symbols BTCUSDT --candles 6000
+
+# Custom balance, no local data cache
+python run_backtest.py --symbols BTCUSDT ETHUSDT --balance 5000 --no-cache
+
+# Run + parameter sweep
+python run_backtest.py --symbols BTCUSDT --candles 4000 --sweep
+
+# Write results to a specific folder
+python run_backtest.py --export-dir /path/to/results
+```
+
+Or as a Python module:
+
+```bash
+python -m backtesting.backtest_runner --symbols BTCUSDT --candles 3000
+```
+
+### CLI options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--symbols` | `BACKTEST_SYMBOLS` | Space-separated symbols to test |
+| `--candles` | `BACKTEST_CANDLE_LIMIT` | Total 15m candles to load |
+| `--balance` | `BACKTEST_INITIAL_BALANCE` | Starting simulation balance (USDT) |
+| `--fee-rate` | `BACKTEST_FEE_RATE` | Fee per leg (decimal, e.g. 0.0004) |
+| `--slippage-rate` | `BACKTEST_SLIPPAGE_RATE` | Slippage per leg (decimal) |
+| `--export-dir` | `BACKTEST_EXPORT_DIR` | Output directory for result files |
+| `--no-cache` | — | Skip CSV cache, always fetch fresh data |
+| `--sweep` | — | Run parameter sweep after the base backtest |
+
+### Output files
+
+Each symbol gets its own subdirectory under `BACKTEST_EXPORT_DIR`:
+
+| File | Contents |
+|---|---|
+| `trades.csv` | Full trade-by-trade log including entry/exit timestamps, prices, PnL, fees, regime label |
+| `equity_curve.csv` | Balance snapshot after every closed trade |
+| `summary.json` | All metrics as JSON (for programmatic use) |
+| `report.md` | Human-readable markdown performance report |
+| `sweep/sweep_results.csv` | Parameter sweep results (if `--sweep` is used) |
+| `cache/` | CSV cache of raw OHLCV data (re-used on subsequent runs) |
+
+### Strategy alignment
+
+The backtesting engine applies the full live strategy pipeline at every 15m candle:
+
+| Stage | Behaviour in backtest |
+|---|---|
+| Data sufficiency | Same check as live — skips candles with insufficient indicator history |
+| 1h trend | Only 1h candles fully closed before the current 15m candle's open time are used |
+| Regime classification | Same rule-based regime score (trending / ranging / choppy) |
+| Breakout detection | Same swing-level breakout with shifted lookback (no self-reference) |
+| Breakout quality | Same volume ratio, body size, close buffer, and wick rejection checks |
+| Overextension / RSI | Same body-ATR ratio, distance-from-EMA, and RSI extreme checks |
+| Cooldown | Candle timestamps are used as reference time — not wall-clock time |
+| Frequency limits | Rolling window counted from candle timestamps — not wall-clock time |
+| Risk calculation | Same ATR-based SL/TP and position sizing as the live bot |
+
+### Simulation assumptions
+
+| Assumption | Default | Description |
+|---|---|---|
+| Entry mode | `next_open` | Entry at the open of the candle after signal confirmation |
+| Fee rate | `0.04%/leg` | Charged on both entry and exit legs |
+| Slippage | `0.02%/leg` | Applied adversely on both entry and exit legs |
+| Same-candle SL+TP | SL wins | Conservative rule — SL assumed hit before TP |
+| Position sizing | Live risk model | `(balance × RISK_PERCENT%) / stop_distance` |
+| Balance | Tracks equity | Balance updates after every closed trade |
+| Leverage | Not modelled | Position value capped at account balance |
+| Funding rate | Not modelled | Testnet demo conditions |
+
+### Performance metrics
+
+The engine computes the following metrics:
+
+- Total / winning / losing trades, rejected signal count
+- Win rate, loss rate
+- Average win, average loss
+- Payoff ratio (avg win / avg loss)
+- Expectancy (USDT per trade)
+- Profit factor (gross profit / gross loss)
+- Total PnL, ending balance, total return %
+- Maximum drawdown (absolute and %)
+- Total fees and slippage costs
+- Average, max, and min trade holding time
+- Long-only and short-only breakdowns
+- Regime distribution of executed trades
+
+### Parameter sweep
+
+Run `--sweep` to test the strategy across a grid of key parameters simultaneously:
+
+| Parameter | Values tested |
+|---|---|
+| `ATR_STOP_MULTIPLIER` | 1.0, 1.5, 2.0 |
+| `REWARD_TO_RISK` | 1.5, 2.0, 2.5 |
+| `VOLUME_RATIO_THRESHOLD` | 1.2, 1.5, 2.0 |
+| `BREAKOUT_CLOSE_BUFFER_RATIO` | 0.05, 0.10, 0.20 |
+| `MAX_BODY_ATR_RATIO` | 1.5, 2.0, 3.0 |
+
+Results are exported to `<export_dir>/<symbol>/sweep/sweep_results.csv`.
+
+You can pass a custom grid via the Python API:
+
+```python
+from backtesting.parameter_sweeper import sweep
+
+results = sweep(
+    symbol="BTCUSDT",
+    df_1h=df_1h,
+    df_15m=df_15m,
+    param_grid={
+        "ATR_STOP_MULTIPLIER": [1.0, 1.5, 2.0],
+        "REWARD_TO_RISK": [1.5, 2.0, 3.0],
+    },
+    initial_balance=10_000.0,
+    export_dir="backtest_results/sweep",
+)
+```
+
+### Known limitations
+
+- No intra-candle granularity — exits are simulated at SL/TP price levels, not tick-by-tick
+- If SL and TP are both touched in the same candle, SL is always assumed to be hit first (conservative)
+- Funding rates and borrowing costs are not modelled
+- Position value is capped at account balance — no leverage is applied
+- Cooldown and frequency limits are reset at the start of each backtest run
+- The parameter sweep applies each override globally; combinations are Cartesian (all × all)
+- Historical data availability depends on Binance's public API; very old data may be unavailable

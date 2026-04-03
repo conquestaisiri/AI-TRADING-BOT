@@ -185,11 +185,20 @@ def _get_trend(df_1h: pd.DataFrame) -> tuple[str, float | None]:
     return "neutral", spread
 
 
-def _check_cooldown(symbol: str, store: "TradeStore") -> tuple[bool, int, str | None]:
+def _check_cooldown(
+    symbol: str,
+    store: "TradeStore",
+    current_time: datetime | None = None,
+) -> tuple[bool, int, str | None]:
     """
     Stage 6b: Check if symbol is in cooldown based on time elapsed since last trade close.
     Returns (active, candles_remaining, last_result).
     last_result: "win" | "loss" | None
+
+    Args:
+        current_time: Reference time for elapsed calculation. Defaults to
+                      datetime.now(UTC). Pass the candle timestamp during
+                      backtesting to avoid using real wall-clock time.
     """
     last = store.get_last_closed_trade(symbol)
     if last is None:
@@ -208,7 +217,10 @@ def _check_cooldown(symbol: str, store: "TradeStore") -> tuple[bool, int, str | 
     if closed_at.tzinfo is None:
         closed_at = closed_at.replace(tzinfo=timezone.utc)
 
-    now = datetime.now(timezone.utc)
+    now = current_time if current_time is not None else datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
     elapsed_minutes = (now - closed_at).total_seconds() / 60.0
     elapsed_candles = int(elapsed_minutes / settings.ENTRY_CANDLE_MINUTES)
 
@@ -219,12 +231,23 @@ def _check_cooldown(symbol: str, store: "TradeStore") -> tuple[bool, int, str | 
     return False, 0, last_result
 
 
-def _check_frequency(symbol: str, store: "TradeStore") -> tuple[bool, int, float | None]:
+def _check_frequency(
+    symbol: str,
+    store: "TradeStore",
+    current_time: datetime | None = None,
+) -> tuple[bool, int, float | None]:
     """
     Stage 6c: Check trade frequency limits.
     Returns (limit_active, trades_in_window, minutes_since_last_entry).
+
+    Args:
+        current_time: Reference time for the rolling window. Defaults to
+                      datetime.now(UTC). Pass the candle timestamp during
+                      backtesting to avoid using real wall-clock time.
     """
-    now = datetime.now(timezone.utc)
+    now = current_time if current_time is not None else datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     window_start = now - timedelta(minutes=settings.TRADE_WINDOW_MINUTES)
 
     entry_times = store.get_recent_entry_times(symbol, since=window_start)
@@ -296,11 +319,23 @@ def evaluate_signal(
     df_15m: pd.DataFrame,
     store: "TradeStore",
     balance_usdt: float,
+    current_time: datetime | None = None,
 ) -> SignalEvaluation:
     """
     Run all 7 evaluation stages for one symbol and return a SignalEvaluation.
+
+    Args:
+        current_time: Reference time for cooldown and frequency checks.
+                      Defaults to datetime.now(UTC).
+                      Pass the candle's own timestamp when running backtests
+                      so cooldown/frequency logic uses simulated time, not
+                      real wall-clock time.
     """
-    evaluated_at = datetime.now(timezone.utc).isoformat()
+    evaluated_at = (
+        current_time.isoformat()
+        if current_time is not None
+        else datetime.now(timezone.utc).isoformat()
+    )
     base: dict = {
         "symbol": symbol,
         "evaluated_at": evaluated_at,
@@ -504,7 +539,9 @@ def evaluate_signal(
         )
 
     # ── Stage 6b: Cooldown check ──────────────────────────────────────────────
-    cooldown_active, cooldown_remaining, last_result = _check_cooldown(symbol, store)
+    cooldown_active, cooldown_remaining, last_result = _check_cooldown(
+        symbol, store, current_time
+    )
     base["cooldown_active"] = cooldown_active
     base["cooldown_candles_remaining"] = cooldown_remaining
     base["last_trade_result"] = last_result
@@ -517,7 +554,9 @@ def evaluate_signal(
         )
 
     # ── Stage 6c: Trade frequency check ──────────────────────────────────────
-    freq_active, trades_in_window, mins_since_last = _check_frequency(symbol, store)
+    freq_active, trades_in_window, mins_since_last = _check_frequency(
+        symbol, store, current_time
+    )
     base["frequency_limit_active"] = freq_active
     base["trades_in_window"] = trades_in_window
     base["minutes_since_last_entry"] = mins_since_last
