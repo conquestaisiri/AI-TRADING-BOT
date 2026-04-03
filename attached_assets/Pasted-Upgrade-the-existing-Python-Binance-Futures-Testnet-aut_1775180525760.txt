@@ -1,0 +1,240 @@
+Upgrade the existing Python Binance Futures Testnet autonomous trading bot project by adding a real historical backtesting engine that is aligned with the live strategy logic.
+
+IMPORTANT RULES
+- No placeholders
+- No fake implementations
+- No mock performance data
+- No dummy reports
+- No TODO logic in core functionality
+- Do not break the existing live trading architecture
+- Keep the project Python-only
+- Do not add frontend, TypeScript, or dashboard UI
+- The backtesting engine must reuse the existing strategy logic as much as possible
+- The backtesting engine must be realistic, readable, and directly usable
+
+GOAL
+Add a real backtesting layer so the strategy can be tested on historical OHLCV data before further development.
+
+The backtesting engine must:
+- fetch or load historical OHLCV data for Binance futures symbols
+- compute the same indicators and filters used by the live bot
+- generate signals using the same strategy logic
+- simulate entries/exits with stop loss and take profit
+- track trade-by-trade results
+- calculate useful performance metrics
+- export results to files
+- support parameter testing later
+
+PROJECT INTEGRATION
+Extend the existing project with a backtesting module. Use a structure like this if appropriate:
+
+crypto_bot/
+  backtesting/
+    backtest_runner.py
+    simulator.py
+    metrics.py
+    parameter_sweeper.py
+    report_writer.py
+
+You may adjust filenames if needed, but keep responsibilities clear and modular.
+
+BACKTESTING REQUIREMENTS
+
+1. HISTORICAL DATA SUPPORT
+Implement a data-loading mechanism for historical backtesting.
+
+Requirements:
+- Use ccxt to fetch historical OHLCV data from Binance futures-compatible endpoints, or build a reusable data loader that can use saved CSV if needed later
+- Support at least BTCUSDT and ETHUSDT
+- Support 15m and 1h timeframes
+- Pull enough candle history to compute indicators properly
+- Return pandas DataFrames with standardized columns and timestamps
+- Keep data handling clean and validated
+
+2. REUSE LIVE STRATEGY LOGIC
+The backtesting engine must use the same logic as the live bot for:
+- trend detection
+- regime filter
+- breakout quality filter
+- overextension filter
+- cooldown logic
+- trade frequency limiter
+- signal approval / rejection flow
+
+Do not build a simplified fake backtest strategy that ignores current live filters.
+
+If needed, refactor the strategy module slightly so the same signal engine can be reused by both live trading and backtesting.
+
+3. CANDLE ALIGNMENT
+Handle 1h trend and 15m entry alignment correctly.
+
+Requirements:
+- 1h trend state must be determined from candles available at the time of each 15m signal
+- do not leak future data
+- ensure signal generation is strictly walk-forward
+- use only information that would have existed at that candle
+
+4. ENTRY SIMULATION
+When a valid signal is approved:
+- simulate entry using a configurable rule
+- default entry rule can be next-candle open after signal confirmation, or clearly documented market-entry approximation
+- keep the rule explicit and consistent
+- store entry timestamp and price
+
+5. EXIT SIMULATION
+Once a trade is opened:
+- simulate candle-by-candle progression
+- check for stop loss or take profit hits
+- support both long and short trades
+- close the trade when SL or TP is reached
+- if both SL and TP are touched in the same candle, use a conservative and clearly documented rule
+- record exit price, exit timestamp, holding duration, and realized PnL
+
+6. SIMULATION REALISM
+Add configurable assumptions for:
+- trading fee percent
+- slippage percent or slippage basis points
+- entry/exit penalty
+- position sizing assumptions
+
+Do not overcomplicate it, but do not ignore trading cost realism.
+These assumptions must be configurable and documented.
+
+7. POSITION SIZING IN BACKTEST
+Use a consistent risk model aligned with the live bot.
+
+Requirements:
+- use account balance and risk percent
+- calculate position size based on stop distance
+- optionally support fixed-size mode if easier for analysis, but default should align with live risk logic
+- update balance over time as trades win or lose
+- record equity curve data
+
+8. METRICS ENGINE
+Calculate real backtest metrics, including at minimum:
+- total trades
+- win rate
+- loss rate
+- average win
+- average loss
+- payoff ratio
+- expectancy
+- profit factor
+- total PnL
+- ending balance
+- maximum drawdown
+- average trade duration
+- long trade stats
+- short trade stats
+- per-symbol stats
+- trades rejected count if practical
+- regime distribution of trades if practical
+
+9. TRADE LOGGING / EXPORT
+Export detailed trade logs to CSV and/or SQLite-compatible storage.
+
+Each completed simulated trade should include fields such as:
+- symbol
+- side
+- signal timestamp
+- entry timestamp
+- exit timestamp
+- entry price
+- exit price
+- quantity
+- stop loss
+- take profit
+- pnl
+- pnl percent
+- fee cost
+- slippage cost
+- trend state
+- regime label
+- rejection reason if relevant
+- approval reason summary
+- holding duration
+
+10. EQUITY CURVE / REPORT DATA
+Track an equity curve over time and save it to file.
+
+Requirements:
+- save equity snapshots after each trade
+- save summary metrics to JSON and/or CSV
+- generate a simple text or markdown performance report if useful
+- no fancy frontend needed
+
+11. PARAMETER SWEEPER
+Add a simple parameter testing utility.
+
+Requirements:
+- allow testing multiple values for key settings such as:
+  - ATR stop multiplier
+  - reward-to-risk ratio
+  - volume threshold
+  - breakout close buffer ratio
+  - max body ATR ratio
+- run multiple backtests and compare summary metrics
+- export sweep results to CSV
+- keep implementation practical and not overly complex
+
+12. CLI OR SCRIPT ENTRYPOINT
+Add a clear way to run the backtest from the command line.
+
+Examples:
+- python -m backtesting.backtest_runner
+or
+- python run_backtest.py
+
+Requirements:
+- allow choosing symbol
+- allow choosing timeframe range if possible
+- allow choosing number of candles or start/end date if practical
+- allow using default settings if not specified
+
+13. SETTINGS / CONFIG UPDATES
+Add backtesting-related settings to config and .env.example with defaults and documentation.
+
+Suggested settings:
+- BACKTEST_INITIAL_BALANCE
+- BACKTEST_FEE_RATE
+- BACKTEST_SLIPPAGE_RATE
+- BACKTEST_ENTRY_MODE
+- BACKTEST_CANDLE_LIMIT
+- BACKTEST_SYMBOLS
+- BACKTEST_EXPORT_DIR
+
+Ensure validation happens cleanly.
+
+14. README UPDATE
+Update the README to explain:
+- what the backtesting engine does
+- how to run it
+- what assumptions it uses
+- what files it exports
+- how it relates to the live strategy
+- known limitations
+
+15. FINAL QUALITY RULES
+Before finishing:
+- make sure imports work
+- make sure no future data leakage exists in backtest logic
+- make sure the same strategy engine is reused where possible
+- make sure the backtest can run end-to-end
+- make sure metrics are real
+- make sure result exports are real
+- make sure no placeholder logic was added
+- keep code readable and modular
+
+EXPECTED RESULT
+I want a real, usable historical backtesting engine integrated into the existing Python Binance Futures Testnet bot project, with:
+- aligned strategy logic
+- realistic trade simulation
+- fees/slippage assumptions
+- performance metrics
+- trade logs
+- equity curve exports
+- simple parameter sweep support
+
+Implement this directly in the project files.
+Do not only summarize.
+Make the changes.
