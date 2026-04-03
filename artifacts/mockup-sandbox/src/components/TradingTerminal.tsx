@@ -124,6 +124,7 @@ export default function TradingTerminal() {
   const [activeBottomTab, setActiveBottomTab] = useState<"positions" | "history">("positions");
   const [settingsForm, setSettingsForm] = useState<Record<string, string>>({});
   const [savingSettings, setSavingSettings] = useState(false);
+  const [saveSettingsError, setSaveSettingsError] = useState<string | null>(null);
   const [loadingPairs, setLoadingPairs] = useState(false);
   const activityRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -227,13 +228,24 @@ export default function TradingTerminal() {
   // ── Settings save ──────────────────────────────────────────────────────────
   const saveSettings = async () => {
     setSavingSettings(true);
+    setSaveSettingsError(null);
     try {
-      await fetch(`${API}/settings`, {
+      const res = await fetch(`${API}/settings`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settingsForm),
       });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Unknown error");
+        setSaveSettingsError(`Save failed (${res.status}): ${text.slice(0, 120)}`);
+        return;
+      }
       await fetchSettings();
-    } finally { setSavingSettings(false); setShowSettings(false); }
+      setShowSettings(false);
+    } catch (err) {
+      setSaveSettingsError(`Network error: ${String(err)}`);
+    } finally {
+      setSavingSettings(false);
+    }
   };
 
   // ── Pair management ────────────────────────────────────────────────────────
@@ -405,9 +417,10 @@ export default function TradingTerminal() {
           form={settingsForm}
           onChange={(k, v) => setSettingsForm((prev) => ({ ...prev, [k]: v }))}
           onSave={saveSettings}
-          onClose={() => setShowSettings(false)}
+          onClose={() => { setShowSettings(false); setSaveSettingsError(null); }}
           saving={savingSettings}
           health={settings?.health}
+          saveError={saveSettingsError}
         />
       )}
 
@@ -813,9 +826,9 @@ function TradeTable({ trades, type }: { trades: OpenTrade[] | ClosedTrade[]; typ
 }
 
 // ─── SETTINGS MODAL ────────────────────────────────────────────────────────────
-function SettingsModal({ form, onChange, onSave, onClose, saving, health }: {
+function SettingsModal({ form, onChange, onSave, onClose, saving, health, saveError }: {
   form: Record<string, string>; onChange: (k: string, v: string) => void;
-  onSave: () => void; onClose: () => void; saving: boolean; health?: ProviderHealth;
+  onSave: () => void; onClose: () => void; saving: boolean; health?: ProviderHealth; saveError?: string | null;
 }) {
   const [tab, setTab] = useState<"exchange" | "ai" | "risk" | "models">("exchange");
 
@@ -907,9 +920,16 @@ function SettingsModal({ form, onChange, onSave, onClose, saving, health }: {
         </>}
       </div>
 
-      <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <Btn onClick={onClose}>Cancel</Btn>
-        <Btn primary onClick={onSave} disabled={saving}>{saving ? "Saving..." : "💾 Save Settings"}</Btn>
+      <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>
+        {saveError && (
+          <div style={{ marginBottom: 10, padding: "8px 12px", background: C.redDim, border: `1px solid ${C.red}40`, borderRadius: 6, fontSize: 10, color: C.red, fontFamily: "monospace", wordBreak: "break-all" }}>
+            ❌ {saveError}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <Btn onClick={onClose}>Cancel</Btn>
+          <Btn primary onClick={onSave} disabled={saving}>{saving ? "Saving..." : "💾 Save Settings"}</Btn>
+        </div>
       </div>
     </Modal>
   );

@@ -13,8 +13,8 @@ import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import { readFileSync, existsSync, mkdirSync } from "fs";
 
-// process.cwd() always resolves to /home/runner/workspace regardless of build layout
-const WORKSPACE_ROOT = process.cwd();
+// pnpm runs scripts in the package directory (artifacts/api-server), so go up 2 levels to workspace root
+const WORKSPACE_ROOT = path.resolve(process.cwd(), "../..");
 
 const router = Router();
 

@@ -9,8 +9,9 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
 import { activityBus } from "./trading.js";
 
-// Use process.cwd() — always resolves to workspace root regardless of build layout
-const SETTINGS_PATH = path.resolve(process.cwd(), "crypto_bot/runtime_settings.json");
+// pnpm runs scripts in the package directory (artifacts/api-server), so go up 2 levels to workspace root
+const WORKSPACE_ROOT = path.resolve(process.cwd(), "../..");
+const SETTINGS_PATH = path.resolve(WORKSPACE_ROOT, "crypto_bot/runtime_settings.json");
 
 const router = Router();
 
@@ -70,6 +71,7 @@ function loadRuntimeSettings(): Record<string, string> {
 }
 
 function saveRuntimeSettings(settings: Record<string, string>): void {
+  mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
   writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), "utf-8");
 }
 
