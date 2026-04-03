@@ -44,42 +44,105 @@ def calculate_indicators(
     swing_lookback: int = 20,
 ) -> pd.DataFrame:
     """
-    Add indicator columns to the OHLCV DataFrame in-place.
+    Enrich an OHLCV DataFrame with indicator columns.
+
+    Swing high/low uses a SHIFTED window (shift(1)) so the current candle
+    is NOT included in its own breakout reference. This prevents self-reference
+    where a candle's own high inflates the swing high it must break.
+
     Columns added:
-      ema_fast, ema_slow, rsi, atr, avg_volume, swing_high, swing_low
-    Returns the enriched DataFrame.
+        ema_fast, ema_slow, ema_spread_pct,
+        rsi, atr, atr_pct,
+        avg_volume,
+        swing_high, swing_low  (shifted — prior N bars only)
     """
     df = df.copy()
 
     df["ema_fast"] = _ema(df["close"], ema_fast)
     df["ema_slow"] = _ema(df["close"], ema_slow)
+
+    # EMA spread as % of price — used for regime/trend strength check
+    df["ema_spread_pct"] = ((df["ema_fast"] - df["ema_slow"]).abs() / df["ema_slow"]) * 100
+
     df["rsi"] = _rsi(df["close"], rsi_period)
     df["atr"] = _atr(df, atr_period)
+
+    # ATR as % of price — used to detect choppy/low-volatility conditions
+    df["atr_pct"] = (df["atr"] / df["close"]) * 100
+
     df["avg_volume"] = df["volume"].rolling(window=volume_avg_period).mean()
 
-    df["swing_high"] = df["high"].rolling(window=swing_lookback).max()
-    df["swing_low"] = df["low"].rolling(window=swing_lookback).min()
+    # CRITICAL FIX: shift(1) before rolling so current candle's high/low is NOT
+    # included in the swing level the current candle must break through.
+    df["swing_high"] = df["high"].shift(1).rolling(window=swing_lookback).max()
+    df["swing_low"] = df["low"].shift(1).rolling(window=swing_lookback).min()
 
-    min_rows_needed = max(ema_slow, rsi_period, atr_period, volume_avg_period, swing_lookback)
-    valid_rows = df.iloc[min_rows_needed:]
-    if valid_rows.empty:
-        logger.warning(
-            "Not enough rows to compute all indicators. Need at least %d rows, got %d.",
-            min_rows_needed,
-            len(df),
-        )
-
+    latest = df.iloc[-1]
     logger.debug(
-        "Indicators calculated. Latest row: EMA%d=%.4f, EMA%d=%.4f, RSI=%.2f, ATR=%.4f",
-        ema_fast,
-        df["ema_fast"].iloc[-1],
-        ema_slow,
-        df["ema_slow"].iloc[-1],
-        df["rsi"].iloc[-1],
-        df["atr"].iloc[-1],
+        "Indicators — EMA%d=%.4f EMA%d=%.4f spread=%.3f%% "
+        "RSI=%.2f ATR=%.4f(%.3f%%) SwingH=%.4f SwingL=%.4f",
+        ema_fast, latest["ema_fast"],
+        ema_slow, latest["ema_slow"],
+        latest["ema_spread_pct"],
+        latest["rsi"],
+        latest["atr"], latest["atr_pct"],
+        latest["swing_high"], latest["swing_low"],
     )
 
     return df
+
+
+def build_feature_summary(df: pd.DataFrame, symbol: str, timeframe: str) -> dict:
+    """
+    Build a structured feature dictionary from the latest enriched candle.
+    This format is designed to be fed directly into an AI model for regime
+    classification and trade scoring (future AI layer hook).
+    """
+    row = df.dropna().iloc[-1]
+
+    ema_fast = float(row["ema_fast"])
+    ema_slow = float(row["ema_slow"])
+
+    if ema_fast > ema_slow:
+        trend_label = "bullish"
+    elif ema_fast < ema_slow:
+        trend_label = "bearish"
+    else:
+        trend_label = "neutral"
+
+    rsi = float(row["rsi"])
+    if rsi > 70:
+        rsi_zone = "overbought"
+    elif rsi < 30:
+        rsi_zone = "oversold"
+    elif rsi > 55:
+        rsi_zone = "bullish_momentum"
+    elif rsi < 45:
+        rsi_zone = "bearish_momentum"
+    else:
+        rsi_zone = "neutral"
+
+    volume_spike = bool(float(row["volume"]) > float(row["avg_volume"]) * 1.5)
+
+    return {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "candle_timestamp": str(row.name) if hasattr(row, "name") else "unknown",
+        "close": float(row["close"]),
+        "trend": trend_label,
+        "ema_fast": ema_fast,
+        "ema_slow": ema_slow,
+        "ema_spread_pct": float(row["ema_spread_pct"]),
+        "rsi": rsi,
+        "rsi_zone": rsi_zone,
+        "atr": float(row["atr"]),
+        "atr_pct": float(row["atr_pct"]),
+        "volume": float(row["volume"]),
+        "avg_volume": float(row["avg_volume"]),
+        "volume_spike": volume_spike,
+        "swing_high": float(row["swing_high"]),
+        "swing_low": float(row["swing_low"]),
+    }
 
 
 def enrich_all(

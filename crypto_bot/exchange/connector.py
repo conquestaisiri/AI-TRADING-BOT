@@ -7,56 +7,66 @@ logger = get_logger("exchange.connector")
 
 def create_exchange() -> ccxt.binance:
     """
-    Create and return a ccxt Binance exchange instance configured for the testnet.
-    Raises RuntimeError if connection or credential check fails.
+    Create and return a ccxt Binance exchange instance configured for the
+    FUTURES testnet. Futures testnet supports both long and short positions
+    correctly, unlike spot which cannot short.
+
+    Credentials: https://testnet.binancefuture.com
+    Raises RuntimeError on authentication or network failure.
     """
     exchange = ccxt.binance({
         "apiKey": settings.BINANCE_API_KEY,
         "secret": settings.BINANCE_API_SECRET,
         "options": {
-            "defaultType": "spot",
+            "defaultType": settings.EXCHANGE_TYPE,  # "future"
         },
         "enableRateLimit": True,
     })
 
     exchange.set_sandbox_mode(True)
 
-    logger.info("Connecting to Binance testnet...")
+    logger.info("Connecting to Binance Futures testnet...")
+    logger.info(
+        "Exchange type: %s | Sandbox: enabled",
+        settings.EXCHANGE_TYPE,
+    )
 
     try:
         exchange.load_markets()
         logger.info(
-            "Successfully connected to Binance testnet. %d markets loaded.",
+            "Connected to Binance Futures testnet. %d markets loaded.",
             len(exchange.markets),
         )
     except ccxt.AuthenticationError as exc:
         raise RuntimeError(
-            "Binance testnet authentication failed. "
-            "Ensure BINANCE_API_KEY and BINANCE_API_SECRET are valid testnet credentials. "
+            "Binance Futures testnet authentication failed.\n"
+            "Make sure you are using FUTURES testnet credentials from "
+            "https://testnet.binancefuture.com — NOT the spot testnet.\n"
             f"Detail: {exc}"
         ) from exc
     except ccxt.NetworkError as exc:
         raise RuntimeError(
-            f"Network error connecting to Binance testnet: {exc}"
+            f"Network error connecting to Binance Futures testnet: {exc}"
         ) from exc
 
     return exchange
 
 
-def fetch_balance(exchange: ccxt.binance) -> float:
+def fetch_usdt_balance(exchange: ccxt.binance) -> float:
     """
-    Fetch USDT balance from the testnet account.
-    Returns the free USDT balance as a float.
+    Fetch the free USDT balance from the futures testnet account.
+    Returns 0.0 on failure (caller handles fallback).
     """
     try:
-        balance = exchange.fetch_balance()
-        usdt_free = float(balance.get("USDT", {}).get("free", 0.0))
-        logger.info("Account USDT balance: %.2f", usdt_free)
-        return usdt_free
+        balance = exchange.fetch_balance({"type": "future"})
+        usdt = balance.get("USDT", {})
+        free = float(usdt.get("free", 0.0))
+        total = float(usdt.get("total", 0.0))
+        logger.info("Account balance — Free USDT: %.2f | Total USDT: %.2f", free, total)
+        return free
     except ccxt.AuthenticationError as exc:
-        raise RuntimeError(
-            f"Authentication error fetching balance: {exc}. "
-            "Check your testnet API credentials."
-        ) from exc
+        logger.error("Authentication error fetching balance: %s", exc)
+        return 0.0
     except ccxt.ExchangeError as exc:
-        raise RuntimeError(f"Exchange error fetching balance: {exc}") from exc
+        logger.error("Exchange error fetching balance: %s", exc)
+        return 0.0

@@ -18,24 +18,26 @@ Also contains a standalone Python crypto demo trading bot in `crypto_bot/`.
 - **Build**: esbuild (CJS bundle)
 - **Python**: 3.11 (for crypto_bot)
 
-## Key Commands
+## Crypto Bot (crypto_bot/)
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+Autonomous demo trading bot on Binance **Futures Testnet** (supports long AND short).
 
-## Crypto Bot
+### Key design decisions
+- Uses Futures testnet, not Spot — Spot cannot short properly
+- Swing high/low uses `.shift(1)` before rolling to exclude current candle (no self-reference)
+- Settings validated at startup via `settings.validate()`, not at import time
+- Strategy has: EMA spread filter, ATR min-pct filter, RSI extreme filter, loss cooldown
+- `build_feature_summary()` provides structured AI-ready feature dict (future AI layer hook)
+- All decisions logged with full context (candle timestamps, rejection reasons, swing levels)
 
-Located in `crypto_bot/`. Run with:
-
+### Run the bot
 ```bash
 cd crypto_bot
-cp .env.example .env  # fill in your Binance testnet credentials
+cp .env.example .env  # fill in Futures testnet credentials from testnet.binancefuture.com
 python3 app.py
 ```
 
-See `crypto_bot/README.md` for full setup and usage instructions.
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+### Storage
+- `storage/trades.db` — SQLite open trades
+- `storage/closed_trades.csv` — closed trades audit log
+- `logs/bot.log` — rotating log file
