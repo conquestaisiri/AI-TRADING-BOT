@@ -1,0 +1,217 @@
+Upgrade the existing Python Binance Futures Testnet autonomous demo trading bot by improving the strategy layer, trade filtering, and trade discipline.
+
+IMPORTANT RULES
+- No placeholders
+- No fake implementations
+- No mock logic
+- No TODOs in core functionality
+- Do not break existing working architecture
+- Keep the project Python-only
+- Keep Binance Futures Testnet support
+- Keep long and short support
+- Make all improvements fully connected to the existing main loop
+
+GOAL
+Improve the existing strategy so the bot avoids lower-quality trades and behaves more intelligently before adding AI.
+
+Add the following major upgrades:
+
+1. MARKET REGIME FILTER
+Add real market regime detection so the bot can classify current conditions as:
+- trending
+- ranging
+- choppy / weak trend
+
+Implement this using practical rule-based logic derived from already available indicators and candle behavior.
+
+Suggested regime inputs:
+- EMA20 vs EMA50 separation strength
+- EMA slope / directional consistency
+- ATR relative to recent ATR average
+- price behavior relative to EMA alignment
+- breakout follow-through quality
+
+Requirements:
+- Create a regime classification function in the strategy layer or features layer
+- Return both a regime label and a regime strength score if useful
+- Allow trades only when the regime is favorable for the breakout/continuation strategy
+- Reject trades in clearly choppy or weak conditions
+- Log regime state in signal evaluation and trade logs
+
+2. OVEREXTENSION FILTER
+Add logic to reject trades that are too extended.
+
+Use practical rules such as:
+- reject long entries if price is too far above a key EMA relative to ATR
+- reject short entries if price is too far below a key EMA relative to ATR
+- reject signals where breakout candle body is too large relative to ATR
+- reject setups where entry is obviously late and stretched
+
+Requirements:
+- Make thresholds configurable in settings
+- Include rejection reasons in logs
+- Include overextension metrics in signal snapshots
+
+3. BREAKOUT QUALITY FILTER
+Upgrade breakout validation so the bot does not treat every wick beyond a level as a valid breakout.
+
+Add checks such as:
+- breakout candle must close beyond the breakout level by a meaningful amount
+- candle body size must meet a minimum quality threshold
+- wick-to-body relationship should not indicate an obvious rejection candle
+- volume confirmation should remain part of validation
+
+Requirements:
+- Use previous swing high / low correctly
+- Add configurable breakout confirmation thresholds
+- Include breakout quality details in logs and signal snapshots
+
+4. COOLDOWN SYSTEM
+Add a real cooldown mechanism.
+
+Requirements:
+- After a losing trade on a symbol, block new trades on that symbol for a configurable number of completed entry candles
+- Optionally allow a different cooldown after a winning trade
+- Store cooldown state in a simple persistent or reconstructable way
+- Prevent the signal engine from approving trades if symbol is cooling down
+- Log cooldown state and rejection reason
+
+5. TRADE FREQUENCY LIMITER
+Add a limiter to prevent overtrading.
+
+Requirements:
+- configurable maximum number of trades per symbol within a configurable rolling time window
+- configurable minimum time gap between new entries on the same symbol
+- prevent new trades if the limit is exceeded
+- log when a trade is rejected due to frequency control
+
+6. ENHANCED SIGNAL OBJECT
+Upgrade the structured signal output to include:
+- symbol
+- side
+- timestamp
+- entry price
+- stop loss
+- take profit
+- atr
+- trend state
+- regime label
+- regime score if available
+- breakout level used
+- breakout confirmation metrics
+- volume ratio
+- overextension metrics
+- cooldown status
+- frequency-limit status
+- final approval status
+- rejection reason if rejected
+- concise reason summary if approved
+
+7. SETTINGS / CONFIG UPGRADES
+Add these configurable settings to the environment/config system with defaults and documentation in .env.example and README:
+
+- VOLUME_RATIO_THRESHOLD
+- ATR_STOP_MULTIPLIER
+- MAX_BODY_ATR_RATIO
+- MAX_DISTANCE_FROM_EMA_ATR_RATIO
+- BREAKOUT_CLOSE_BUFFER_RATIO
+- MIN_BODY_TO_RANGE_RATIO
+- LOSS_COOLDOWN_CANDLES
+- WIN_COOLDOWN_CANDLES
+- MAX_TRADES_PER_WINDOW
+- TRADE_WINDOW_MINUTES
+- MIN_ENTRY_GAP_MINUTES
+- REGIME_MIN_TREND_SCORE
+
+Ensure settings are validated at startup.
+
+8. STRATEGY ENGINE REFACTOR
+Refactor the strategy engine so evaluation happens in stages:
+
+Stage 1:
+- validate data sufficiency
+- determine higher timeframe trend
+
+Stage 2:
+- classify regime
+
+Stage 3:
+- detect breakout candidate
+
+Stage 4:
+- evaluate breakout quality
+
+Stage 5:
+- evaluate overextension
+
+Stage 6:
+- evaluate cooldown and trade frequency limits
+
+Stage 7:
+- if all checks pass, create approved signal
+- otherwise create rejected signal with exact reason
+
+Keep this logic clear and readable.
+
+9. TRADE STORAGE IMPROVEMENTS
+Extend storage so closed trades and open trades can help support cooldown and trade frequency logic.
+
+Requirements:
+- be able to query recent closed trades by symbol
+- be able to query recent entry times by symbol
+- record whether a trade ended in profit or loss
+- make these queries available to the strategy or risk/execution layer
+
+10. LOGGING IMPROVEMENTS
+Upgrade logging further so strategy evaluation clearly shows:
+- regime classification
+- trend state
+- breakout level
+- volume ratio
+- body-to-range ratio
+- ATR values
+- overextension status
+- cooldown state
+- trade-frequency state
+- exact rejection reason
+
+Logs must be useful for debugging real trading behavior.
+
+11. README UPDATE
+Update README to explain:
+- the new regime filter
+- overextension protection
+- breakout-quality validation
+- cooldown rules
+- trade-frequency limiter
+- new environment variables
+
+12. DO NOT ADD YET
+Do not add:
+- AI layer
+- news layer
+- macro layer
+- backtesting layer
+- frontend/dashboard
+unless already existing and fully working, which they should not be for this task.
+
+13. FINAL QUALITY CHECK
+Before finishing:
+- make sure imports still work
+- make sure main loop still runs
+- make sure new filters are integrated into the existing live flow
+- make sure no placeholder logic was added
+- make sure rejected signals are logged clearly
+- make sure approved trades still execute normally
+
+EXPECTED RESULT
+The bot should still autonomously trade Binance Futures Testnet, but now it should be much more selective and disciplined due to:
+- regime filtering
+- overextension filtering
+- breakout quality filtering
+- cooldown logic
+- trade frequency control
+
+Make these changes directly in the project files.
+Do not summarize only.
+Implement them.
