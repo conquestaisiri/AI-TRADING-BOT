@@ -1,0 +1,550 @@
+Redesign and upgrade the entire system into a visually sophisticated, fully functional AI trading terminal for the existing Python Binance Futures Testnet autonomous trading bot.
+
+IMPORTANT CONTEXT
+The current system is not visually strong enough and does not feel like a real high-end trading terminal.
+I want this redesigned into a polished, advanced, highly interactive trading terminal experience.
+
+The dashboard must NOT be basic.
+It must feel like:
+- a modern AI trading workstation
+- a live terminal
+- a real operational control center
+- something where I can watch the system think, route models, evaluate signals, and execute demo trades
+
+The system must remain real and functional.
+No fake UI.
+No placeholder panels.
+No mock data pretending to be real.
+No decorative components that do not connect to live or simulated system state.
+
+==================================================
+MANDATORY WORKFLOW
+==================================================
+
+Before implementing any code:
+1. Generate a PREVIEW / BUILD PLAN
+2. Show the full architecture clearly
+3. Show exact files to create/modify
+4. Show the dashboard layout and panel responsibilities
+5. Show all secrets / environment variables that I must fill in
+6. Show how the AI routing and 2-model pod system works
+7. Show the live event stream / terminal logging design
+8. Show what the system will do before any API key is added
+9. Show what will remain disabled until secrets are provided
+
+Only after showing this preview clearly should implementation begin.
+
+==================================================
+CRITICAL RULES
+==================================================
+
+- No placeholders anywhere
+- No fake AI decisions
+- No fake streaming logs
+- No fake terminal output
+- No fake widgets
+- No TODO comments in production code
+- No pseudo-code in production files
+- Every dashboard element must be connected to real system state or clearly disabled with a real reason
+- No TypeScript or frontend mockup that is disconnected from the Python backend
+- Keep the backend Python-based
+- If a frontend/dashboard layer exists, it must be fully connected to backend state
+- Do not break the current live bot
+- Do not break backtesting
+- Reuse the existing strategy, scoring, storage, and execution systems wherever possible
+- Keep all secrets externalized using Replit Secrets / environment variables
+- No hardcoded API keys
+- Make the system exportable from Replit later
+
+==================================================
+PRIMARY GOAL
+==================================================
+
+Build a sophisticated AI trading terminal around the current Binance Futures Testnet demo trading system.
+
+This terminal must allow me to:
+- choose which pair(s) to trade
+- see whether the bot is idle, scanning, scoring, reviewing, or executing
+- see which AI models/pods are being called
+- see what each pod is doing
+- see consensus and disagreement
+- see judge output
+- see live signal flow
+- see demo trades being opened and closed
+- see logs as they happen
+- see risk and trade status
+- see whether AI keys are connected
+- see which providers/models are active
+- manage runtime state from a clear control panel
+
+==================================================
+AI SYSTEM DESIGN
+==================================================
+
+Use a multi-agent pod system.
+
+Each specialist role must be a pod of 2 models, not 1.
+
+Pods:
+1. Trend Pod
+2. Structure / Breakout Pod
+3. Regime / Volatility Pod
+4. Risk Pod
+5. Execution Safety Pod
+
+Judge:
+6. Judge Agent (single final judge model)
+
+Each pod must:
+- send the same structured role-specific input to 2 models
+- normalize both outputs
+- compute a pod consensus object
+- expose disagreement/conflict clearly in the UI and backend
+
+Each pod consensus object must include:
+- model_a_name
+- model_b_name
+- model_a_provider
+- model_b_provider
+- model_a_decision
+- model_b_decision
+- model_a_confidence
+- model_b_confidence
+- agreement_score
+- conflict_flag
+- pod_decision
+- pod_confidence
+- latency_ms
+- fallback_used
+
+The Judge Agent must receive:
+- structured signal summary
+- trade score
+- all pod consensus objects
+- pod conflicts
+- provider/model metadata
+- execution constraints
+
+The Judge Agent must return:
+- approve | reject | cautious
+- confidence
+- strengths
+- weaknesses
+- risk_flags
+- concise_reason
+
+==================================================
+ORCHESTRATION LOGIC
+==================================================
+
+Build deterministic orchestration.
+No uncontrolled “agents talking forever.”
+
+Support orchestration modes:
+- light
+- standard
+- full
+- auto
+
+Default policy:
+- if score is too low -> reject before AI
+- if score is medium -> call core pods only
+- if score is high but uncertain -> call full council
+- if pod conflicts are strong -> require judge with stricter approval
+- if provider fails -> retry or fallback according to config
+- if too many pod failures occur -> reject or cautious depending on config
+
+==================================================
+PROVIDER DESIGN
+==================================================
+
+Make OpenRouter the DEFAULT provider.
+
+Also support:
+- Groq as optional hosted fallback/direct provider
+- Ollama-compatible endpoint as optional local/self-hosted provider
+
+IMPORTANT IMPLEMENTATION RULE:
+Do NOT assume that I need 10 different API keys for 10 models.
+
+The system must be designed so that:
+- a single OpenRouter API key can power many different model IDs
+- optional Groq direct usage can use a separate Groq key
+- optional Ollama-compatible usage can use a base URL and optional key
+
+This means model selection must be configurable independently from provider keys.
+
+==================================================
+SECRETS / ENVIRONMENT VARIABLES
+==================================================
+
+Create a complete secret/config system and document it clearly.
+
+I want the system to create clear places for secrets and model config.
+
+At minimum create support for these secrets:
+
+# Core AI toggles
+AI_ENABLED
+AI_MODE
+AI_ORCHESTRATION_MODE
+AI_REVIEW_REQUIRED
+AI_REQUIRE_JUDGE_APPROVAL
+AI_ALLOW_RULE_ONLY_FALLBACK
+
+# Default provider/model
+AI_DEFAULT_PROVIDER
+AI_DEFAULT_MODEL
+
+# Routing/retry controls
+AI_TIMEOUT_SECONDS
+AI_MAX_RETRIES
+AI_RETRY_BACKOFF_SECONDS
+AI_MIN_SCORE_FOR_REVIEW
+AI_MIN_SCORE_FOR_EXECUTION
+AI_FALLBACK_PROVIDER
+AI_FALLBACK_MODEL
+
+# Provider credentials
+OPENROUTER_API_KEY
+GROQ_API_KEY
+OLLAMA_BASE_URL
+OLLAMA_API_KEY
+
+# Trend pod models
+TREND_POD_MODEL_A
+TREND_POD_MODEL_B
+TREND_POD_PROVIDER_A
+TREND_POD_PROVIDER_B
+
+# Structure pod models
+STRUCTURE_POD_MODEL_A
+STRUCTURE_POD_MODEL_B
+STRUCTURE_POD_PROVIDER_A
+STRUCTURE_POD_PROVIDER_B
+
+# Regime pod models
+REGIME_POD_MODEL_A
+REGIME_POD_MODEL_B
+REGIME_POD_PROVIDER_A
+REGIME_POD_PROVIDER_B
+
+# Risk pod models
+RISK_POD_MODEL_A
+RISK_POD_MODEL_B
+RISK_POD_PROVIDER_A
+RISK_POD_PROVIDER_B
+
+# Execution safety pod models
+EXECUTION_POD_MODEL_A
+EXECUTION_POD_MODEL_B
+EXECUTION_POD_PROVIDER_A
+EXECUTION_POD_PROVIDER_B
+
+# Judge model
+JUDGE_AGENT_MODEL
+JUDGE_AGENT_PROVIDER
+
+# Optional dashboard/runtime settings
+DASHBOARD_ENABLE_STREAMING
+DASHBOARD_REFRESH_SECONDS
+DASHBOARD_MAX_LOG_LINES
+DASHBOARD_DEFAULT_SYMBOL
+DASHBOARD_DEFAULT_MODE
+
+The app must validate these cleanly at startup.
+If some are missing, the dashboard must clearly show:
+- which secret is missing
+- what feature is disabled because of it
+- whether the system can still run in rule-only mode
+
+==================================================
+IMPORTANT CLARIFICATION ABOUT KEYS
+==================================================
+
+Design the config so that:
+- OpenRouter can be used with one API key and many model IDs
+- Groq can be used with one API key and its own model IDs
+- Ollama-compatible endpoint can be used through base URL and optional key
+
+Do NOT design this as “1 model = 1 key.”
+Design this as:
+“provider key(s) + per-agent model IDs + per-agent provider assignments.”
+
+==================================================
+DASHBOARD / TERMINAL REDESIGN
+==================================================
+
+Redesign the dashboard into a polished AI trading terminal.
+
+It must look sophisticated and functional.
+
+Main UI/UX requirements:
+- dark, premium, terminal-inspired design
+- modern trading workstation feel
+- dense but clean information layout
+- no ugly basic card dump
+- clear hierarchy
+- responsive but desktop-first
+- elegant typography and spacing
+- rich but not cluttered
+
+Core terminal sections:
+1. System Control Panel
+   - start/stop bot
+   - select symbol(s)
+   - choose orchestration mode
+   - toggle AI enabled / rule-only
+   - show provider connectivity state
+   - show whether demo trading is armed
+
+2. Market / Signal Panel
+   - active pairs
+   - latest structured signal
+   - score
+   - regime
+   - trend
+   - breakout state
+   - trade readiness
+
+3. AI Council Panel
+   - show each pod
+   - show model A + model B
+   - show status:
+     idle / reviewing / success / failed / fallback
+   - show pod consensus
+   - show disagreement visually
+   - show judge result
+
+4. Live Agent Activity Stream
+   - show step-by-step internal actions
+   - similar in spirit to watching an agent think/work
+   - examples:
+     “Fetched 15m candles for BTCUSDT”
+     “Trade score computed: 72”
+     “Calling Trend Pod”
+     “Trend Pod model A returned bullish”
+     “Trend Pod disagreement flagged”
+     “Judge reviewing pod outputs”
+     “Trade approved”
+     “Demo long order sent”
+   - must be real system events, not fake text
+
+5. Trade Terminal Panel
+   - open demo positions
+   - entry
+   - stop
+   - target
+   - unrealized PnL
+   - side
+   - size
+   - symbol
+   - duration
+
+6. Trade History / Decision Log Panel
+   - closed trades
+   - rejected signals
+   - AI verdicts
+   - score
+   - reason
+
+7. Provider / Secret Health Panel
+   - whether each provider is configured
+   - whether required keys are missing
+   - which pods are ready
+   - which pods are unavailable
+
+8. Risk / Portfolio Panel
+   - balance
+   - current exposure
+   - open trades count
+   - cooldown states
+   - limiter states
+
+If you build a web interface, it must be fully wired to backend state.
+If you build it as a terminal/web hybrid, make it clean and functional.
+
+==================================================
+LIVE EVENT STREAMING
+==================================================
+
+Build a real-time event stream/log bus.
+
+This is critical.
+
+The dashboard must be able to show events such as:
+- system startup
+- config validation
+- symbol selection
+- market scan
+- signal candidate created
+- score computed
+- pods invoked
+- provider/model chosen
+- retries/fallbacks
+- judge decision
+- execution decision
+- trade open
+- trade close
+- backtest started/completed
+- AI disabled because secret missing
+- provider unreachable
+
+This event stream must be backed by real runtime events.
+
+==================================================
+PAIR / SYMBOL CONTROL
+==================================================
+
+Allow the user to specify which pairs to trade.
+
+Requirements:
+- select one or multiple supported symbols
+- persist current symbol selection
+- ensure live system only scans selected symbols
+- show current active symbols in UI
+
+==================================================
+AI PROMPTING
+==================================================
+
+Create real prompt templates for:
+- Trend Pod
+- Structure Pod
+- Regime Pod
+- Risk Pod
+- Execution Safety Pod
+- Judge Agent
+
+Each prompt must:
+- define the role strictly
+- forbid hype and freestyle prediction
+- force structured output
+- force conservative reasoning when evidence is mixed
+- focus only on the assigned domain
+
+Judge prompt must:
+- review pod outputs
+- weigh conflict
+- avoid overconfidence
+- return structured final verdict
+
+==================================================
+SCHEMAS
+==================================================
+
+Create structured schemas for:
+- signal_packet
+- pod_model_response
+- pod_consensus
+- judge_response
+- final_decision
+- ui_event_stream_record
+
+==================================================
+BACKEND INTEGRATION
+==================================================
+
+Integrate all of this into the existing system without breaking:
+- live trading
+- scoring
+- storage
+- backtesting
+
+Final decision flow:
+1. strategy detects candidate
+2. scoring computes trade score
+3. if below threshold -> reject
+4. if above threshold -> orchestrator selects pods
+5. pod models run
+6. pod consensus computed
+7. judge runs
+8. final gate combines:
+   - rule approval
+   - score threshold
+   - judge verdict
+   - execution safety
+9. trade executes or rejects
+10. event stream updates everything live
+
+==================================================
+STORAGE
+==================================================
+
+Persist:
+- trade score
+- component scores
+- pod outputs
+- judge output
+- final AI verdict
+- provider/model metadata
+- latency
+- fallback usage
+- event history if practical
+- rejected signals if practical
+
+==================================================
+README / DOCS / SETUP
+==================================================
+
+Update docs to explain:
+- dashboard architecture
+- terminal flow
+- secrets required
+- which AI providers are supported
+- that OpenRouter is default
+- that one OpenRouter key can drive multiple model IDs
+- that Groq is optional
+- that Ollama-compatible endpoint is optional
+- how rule-only mode works
+- how AI-required mode works
+- how to add Replit Secrets
+- how to fill model IDs per pod
+- which features remain disabled until secrets are provided
+
+==================================================
+VERY IMPORTANT IMPLEMENTATION NOTES
+==================================================
+
+- Do not assume local Ollama is available in Replit by default
+- Treat Ollama as optional/self-hosted/local-compatible support
+- Prefer hosted provider integration first
+- The system must still work in rule-only mode if AI keys are not yet added
+- The UI must clearly show that AI is not active until keys are supplied
+- The dashboard must not lie about what is working
+
+==================================================
+FINAL QUALITY CHECK
+==================================================
+
+Before finishing:
+- ensure imports work
+- ensure dashboard is functional
+- ensure event stream is real
+- ensure live bot still runs
+- ensure backtesting still runs
+- ensure no placeholder UI exists
+- ensure no fake logs exist
+- ensure secret validation is clear
+- ensure OpenRouter is default provider
+- ensure provider/model config is separated properly
+- ensure no hardcoded secrets
+- ensure the preview/plan is shown before implementation
+
+==================================================
+EXPECTED RESULT
+==================================================
+
+I want a sophisticated AI trading terminal with:
+- redesigned advanced dashboard
+- real live event stream
+- multi-agent pod council
+- OpenRouter-first provider design
+- optional Groq and Ollama-compatible support
+- per-pod model configuration
+- Replit Secret-ready setup
+- real status display for missing keys
+- full integration with the trading system
+
+First show the preview/plan.
+Then implement the full connected system.
