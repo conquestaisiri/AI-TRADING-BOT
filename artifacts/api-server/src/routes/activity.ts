@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { activityBus } from "./trading";
+import { activityBus } from "./trading.js";
 
 const router = Router();
 

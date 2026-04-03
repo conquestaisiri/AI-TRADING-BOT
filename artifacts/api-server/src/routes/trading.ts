@@ -11,10 +11,10 @@
 import { Router } from "express";
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
-import { fileURLToPath } from "url";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, mkdirSync } from "fs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// process.cwd() always resolves to /home/runner/workspace regardless of build layout
+const WORKSPACE_ROOT = process.cwd();
 
 const router = Router();
 
@@ -213,7 +213,7 @@ interface BotState {
 
 function checkApiKeys(): boolean {
   try {
-    const rPath = path.resolve(__dirname, "../../../../crypto_bot/runtime_settings.json");
+    const rPath = path.resolve(WORKSPACE_ROOT, "crypto_bot/runtime_settings.json");
     if (existsSync(rPath)) {
       const rs = JSON.parse(readFileSync(rPath, "utf-8"));
       if (rs["BINANCE_API_KEY"] && rs["BINANCE_API_SECRET"]) return true;
@@ -268,9 +268,12 @@ function classifyMsg(msg: string, base: string): string {
 
 // ── Spawn bot ──────────────────────────────────────────────────────────────────
 function startBotProcess(symbols: string[]): void {
-  const botDir = path.resolve(__dirname, "../../../../crypto_bot");
+  const botDir = path.resolve(WORKSPACE_ROOT, "crypto_bot");
   const venvPython = path.join(botDir, ".venv/bin/python3");
-  const pythonBin = existsSync(venvPython) ? venvPython : "python3";
+  const systemPython = ["/usr/bin/python3", "/usr/local/bin/python3", "python3"].find(
+    (p) => p === "python3" || existsSync(p)
+  ) ?? "python3";
+  const pythonBin = existsSync(venvPython) ? venvPython : systemPython;
 
   // Merge runtime settings into env
   let runtimeEnv: Record<string, string> = {};
@@ -357,8 +360,8 @@ const DEFAULT_PAIRS = [
 ];
 
 // ── Trade data ─────────────────────────────────────────────────────────────────
-const DB_PATH = path.resolve(__dirname, "../../../../crypto_bot/storage/trades.db");
-const CSV_PATH = path.resolve(__dirname, "../../../../crypto_bot/storage/closed_trades.csv");
+const DB_PATH = path.resolve(WORKSPACE_ROOT, "crypto_bot/storage/trades.db");
+const CSV_PATH = path.resolve(WORKSPACE_ROOT, "crypto_bot/storage/closed_trades.csv");
 
 let _sqlite: unknown = null;
 async function getSQLite() {

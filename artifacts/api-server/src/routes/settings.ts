@@ -5,13 +5,12 @@
  */
 
 import { Router, type Request, type Response } from "express";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { activityBus } from "./trading.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SETTINGS_PATH = path.resolve(__dirname, "../../../../crypto_bot/runtime_settings.json");
+// Use process.cwd() — always resolves to workspace root regardless of build layout
+const SETTINGS_PATH = path.resolve(process.cwd(), "crypto_bot/runtime_settings.json");
 
 const router = Router();
 
