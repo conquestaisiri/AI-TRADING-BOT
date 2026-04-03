@@ -17,6 +17,27 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start NeuralTrader"
+
+[[workflows.workflow]]
+name = "Start NeuralTrader"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev & PORT=8081 BASE_PATH=/ pnpm --filter @workspace/mockup-sandbox run dev"
+waitForPort = 8081
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
