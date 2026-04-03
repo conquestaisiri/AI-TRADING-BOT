@@ -1,0 +1,132 @@
+Build a fully functional Python project for an autonomous crypto demo trading bot.
+
+Important rules:
+- No placeholders anywhere.
+- No fake implementations.
+- No mock buttons.
+- No dummy functions that pretend to work.
+- No “TODO” logic in core features.
+- Every core feature must be implemented with real working code.
+- If a feature depends on missing API keys or unavailable credentials, still implement the full real integration and return a clear runtime error message explaining what is missing.
+- Do not simplify core parts into placeholders.
+- Do not generate decorative code without functionality.
+- All files must be real, connected, and used.
+
+Goal:
+Create a modular Python trading bot that can autonomously trade on a crypto demo/testnet environment. The bot must fetch its own market data, calculate indicators, detect valid trade setups, execute demo trades automatically, monitor positions, and log all trade activity.
+
+Scope for version 1:
+- Crypto only
+- Python only
+- Binance testnet/demo-compatible architecture
+- Symbols: BTCUSDT and ETHUSDT
+- Timeframes: 15m entries, 1h trend confirmation
+- Strategy: trend-following breakout / continuation
+- Full autonomous loop
+- Real logging
+- No AI layer yet in v1 core unless implemented as an optional module
+- Use clean modular architecture
+
+Technical requirements:
+1. Use Python.
+2. Create a clean project structure with separate modules for:
+   - configuration
+   - exchange connectivity
+   - market data fetching
+   - indicator calculation
+   - strategy logic
+   - risk management
+   - trade execution
+   - trade monitoring
+   - logging
+   - storage
+3. Use environment variables for API keys and secrets.
+4. Include a requirements file.
+5. Include a clear README with setup steps.
+6. Add graceful error handling and useful logs.
+7. Use real package imports and real implementations only.
+
+Functional requirements:
+1. Load API keys and settings from environment variables.
+2. Connect to the exchange test environment.
+3. Fetch account balance.
+4. Fetch OHLCV candle data for BTCUSDT and ETHUSDT.
+5. Calculate:
+   - EMA 20
+   - EMA 50
+   - RSI 14
+   - ATR 14
+   - rolling average volume
+   - recent swing high and swing low
+6. Strategy rules:
+   - Use 1h candles to determine trend direction.
+   - Bullish trend if EMA20 > EMA50 on 1h.
+   - Bearish trend if EMA20 < EMA50 on 1h.
+   - On 15m, detect breakout/continuation entries:
+     - for long: price closes above a recent high with above-average volume and bullish 1h trend
+     - for short: price closes below a recent low with above-average volume and bearish 1h trend
+   - Avoid opening a new trade if one is already open for that symbol.
+7. Risk logic:
+   - Risk percent configurable
+   - ATR-based stop loss
+   - configurable reward-to-risk ratio
+   - reject trades if ATR is zero or invalid
+   - reject trades if balance or position sizing is invalid
+8. Execution:
+   - Place demo/testnet-compatible market order
+   - Immediately calculate and store stop loss and take profit levels
+   - Persist open trade state
+9. Monitoring:
+   - Continuously monitor open trades
+   - Close trade when stop loss or take profit is reached
+   - Update stored trade state
+10. Logging:
+   - Log every major event:
+     - startup
+     - API connection
+     - data fetch
+     - signal detection
+     - order placement
+     - order close
+     - errors
+   - Save completed trades to CSV or SQLite
+11. Main loop:
+   - Run continuously
+   - Refresh market data at an interval suitable for 15m / 1h strategy checks
+   - Manage open positions even when no new setup exists
+12. README:
+   - explain how to install dependencies
+   - explain environment variables
+   - explain how to run locally
+   - explain how to export from Replit later
+
+Architecture requirements:
+Create a structure similar to:
+
+crypto_bot/
+  app.py
+  requirements.txt
+  README.md
+  .env.example
+  config/
+  exchange/
+  data/
+  features/
+  strategy/
+  risk/
+  execution/
+  logs/
+  storage/
+
+Implementation quality requirements:
+- Use clear, maintainable code.
+- Use classes or well-structured functions where appropriate.
+- Avoid overengineering, but keep it production-minded.
+- Make every module connected and usable.
+- Do not leave files unused.
+- Add comments only where they help understanding.
+- Include real runtime checks.
+- If testnet order placement cannot be verified without credentials, still implement the complete real order flow.
+
+Output:
+Generate the complete project files with real code, not summaries.
